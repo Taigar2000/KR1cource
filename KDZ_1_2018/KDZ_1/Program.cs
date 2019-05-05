@@ -35,6 +35,51 @@ namespace KDZ_1
         [STAThread]
         static void Main()
         {
+            //int ji = 1;
+            //int jj = -1;
+            //int o = 1;
+            //int size = 8;
+            //List<int[]> l = new List<int[]>();
+            //int[,] arr = new int[size, size];
+            //for (int i = 0; i < 64; i++)
+            //{
+            //    ji -= o;
+            //    jj += o;
+
+            //    bool lastisrot = false;
+            //    if (!lastisrot && jj > size - 1) // Turn right and go down
+            //    {
+            //        o *= -1;
+            //        ji += 2;
+            //        jj -= 1;
+            //        lastisrot = true;
+            //    }
+            //    if (!lastisrot && ji < 0) // Turn right and go down
+            //    {
+            //        o *= -1;
+            //        ji += 1;
+            //        jj += 0;
+            //        lastisrot = true;
+            //    }
+            //    if (!lastisrot && ji > size - 1) // Turn left and go up
+            //    {
+            //        o *= -1;
+            //        ji -= 1;
+            //        jj += 2;
+            //        lastisrot = true;
+            //    }
+            //    if (!lastisrot && jj < 0) // Turn left and go up
+            //    {
+            //        o *= -1;
+            //        ji += 0;
+            //        jj += 1;
+            //        lastisrot = true;
+            //    }
+            //    l.Add(new int[] { ji, jj });
+            //    arr[ji, jj] = i+1;
+                    
+            //}
+            //return;
             //for developer only
             bool debug = false;
             //Заставляем всех использовать английскую локаль

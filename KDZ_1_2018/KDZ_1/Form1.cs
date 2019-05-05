@@ -14,6 +14,8 @@ namespace KDZ_1
 {
     public partial class Form1 : Form
     {
+        #region Init
+
         private float posx, posy, pox, poy;
         Fractal frac;
         private string name = "";
@@ -35,6 +37,7 @@ namespace KDZ_1
         bool fenableformwhendrawing = false;
         bool flagmb = false;
 
+        #endregion
 
         /// <summary>
         /// Конструктор принимающий ссылку на окно шкалы прогресса
@@ -59,6 +62,8 @@ namespace KDZ_1
             timer.Tick += new EventHandler(timer_Tick);
             
         }
+
+        #region Fractal
 
         /// <summary>
         /// Выбор фрактала
@@ -138,6 +143,40 @@ namespace KDZ_1
             if (this.Frac == null) { DropExWindow("Выберите тип фрактала"); return; }
             if (this.Frac.isdrawing) return;
             DrawFractal();
+        }
+
+        /// <summary>
+        /// Перерисовываем фрактал
+        /// </summary>
+        void Rewrite()
+        {
+            if (this.Frac.isdrawing) return;
+            try
+            {
+                this.bmp = new Bitmap((int)(((Frac.xsize + Frac.space * 2) * Frac.scale)), (int)((Frac.ysize + Frac.space * 2) * Frac.scale));
+                Graphics graph = Graphics.FromImage(bmp);
+                DrawFractal();
+            }
+            catch (ArgumentNullException ex)
+            {
+                //Исключение выбрасываемое в предыдущих версиях программы
+            }
+            catch (System.ArgumentException ex)
+            {
+                //Вывод окна с сообщением об ошибке
+                DropExWindow("Слишком большое приближение/удаление \n" + ex.Message);
+                Init();
+            }
+            catch (OverflowException ex)
+            {
+                //Вывод окна с сообщением об ошибке
+                DropExWindow("Слишком большая глубина рекурсии \n" + ex.Message);
+            }
+            catch (Exception ex)
+            {
+                DropExWindow("\n" + ex.Message);
+            }
+            Invalidate();
         }
 
         /// <summary>
@@ -264,6 +303,18 @@ namespace KDZ_1
             {
             }
         }
+        
+        /// <summary>
+        /// Сколько уровней рекурсии отрисовывать
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void checkBox1_CheckedChanged(object sender, EventArgs e)
+        {
+            if (Frac != null && !this.Frac.isdrawing) Frac.drawall = checkBox1.Checked;
+        }
+
+        #endregion
 
         /// <summary>
         /// Переопределение перерисовки окна
@@ -454,6 +505,23 @@ namespace KDZ_1
             }
             Rewrite();
         }
+
+        /// <summary>
+        /// Изменение масштаба через поле для ввода
+        /// </summary>
+        private void textBox1_TextChanged()
+        {
+            //if (this.Frac.isdrawing) return;
+            float sc;
+            if (!(float.TryParse(this.textBox1.Text, out sc) && sc > 0.05 && sc <= 51.8)) { DropExWindow("Неверное значение масштаба"); Init(false); return; }
+            if (Frac == null) return;
+            Frac.xspace = this.pictureBox1.Width;
+            Frac.yspace = 22;
+            Frac.xleft = posx;
+            Frac.yleft = posy;
+            Frac.scale = sc;
+            if (!Frac.scf || !Frac.ecf) return;
+        }
         
         #endregion
 
@@ -523,6 +591,8 @@ namespace KDZ_1
             }
         }
 
+        #region ColorDialog
+
         /// <summary>
         /// Выбор начального цвета фрактала
         /// </summary>
@@ -568,40 +638,8 @@ namespace KDZ_1
             }
         }
 
+        #endregion
 
-        /// <summary>
-        /// Перерисовываем фрактал
-        /// </summary>
-        void Rewrite()
-        {
-            if (this.Frac.isdrawing) return;
-            try
-            {
-                this.bmp = new Bitmap((int)(((Frac.xsize + Frac.space * 2) * Frac.scale)), (int)((Frac.ysize + Frac.space * 2) * Frac.scale));
-                Graphics graph = Graphics.FromImage(bmp);
-                DrawFractal();
-            }
-            catch (ArgumentNullException ex)
-            {
-                //Исключение выбрасываемое в предыдущих версиях программы
-            }
-            catch (System.ArgumentException ex)
-            {
-                //Вывод окна с сообщением об ошибке
-                DropExWindow("Слишком большое приближение/удаление \n" + ex.Message);
-                Init();
-            }
-            catch (OverflowException ex)
-            {
-                //Вывод окна с сообщением об ошибке
-                DropExWindow("Слишком большая глубина рекурсии \n" + ex.Message);
-            }
-            catch (Exception ex)
-            {
-                DropExWindow("\n" + ex.Message);
-            }
-            Invalidate();
-        }
 
         #region Save
 
@@ -885,33 +923,6 @@ namespace KDZ_1
         {
             if (this.Frac!=null && this.Frac.isdrawing) return;
             (new Form1(pb)).ShowDialog(new Form1(pb));
-        }
-        
-        /// <summary>
-        /// Сколько уровней рекурсии отрисовывать
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void checkBox1_CheckedChanged(object sender, EventArgs e)
-        {
-            if (Frac != null && !this.Frac.isdrawing) Frac.drawall = checkBox1.Checked;
-        }
-
-        /// <summary>
-        /// Изменение масштаба через поле для ввода
-        /// </summary>
-        private void textBox1_TextChanged()
-        {
-            //if (this.Frac.isdrawing) return;
-            float sc;
-            if (!(float.TryParse(this.textBox1.Text, out sc) && sc > 0.05 && sc <= 51.8)) { DropExWindow("Неверное значение масштаба"); Init(false); return; }
-            if (Frac == null) return;
-            Frac.xspace = this.pictureBox1.Width;
-            Frac.yspace = 22;
-            Frac.xleft = posx;
-            Frac.yleft = posy;
-            Frac.scale = sc;
-            if (!Frac.scf || !Frac.ecf) return;
         }
 
         /// <summary>
