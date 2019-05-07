@@ -19,28 +19,42 @@ namespace JPEG
     public class jpg
     {
         public List<haffman> H;
+        public List<byte[]> Harr;
         //quant Q;
         public List<List<List<int>>> Q;
+        public List<bool> onebyte;
+        public List<int> Qid;
+        public List<byte[]> Qarr;
         public List<flow> F;
+        public List<byte[]> Farr;
         public List<flows> Fs;
-        public List<List<List<List<int>>>> img;
+        public List<List<int[,]>> img;
+        public byte[] imgarr;
 
 
         public jpg()
         {
             H = new List<haffman>();
+            Harr = new List<byte[]>();
             Q = new List<List<List<int>>>(); // quant();
+            onebyte = new List<bool>(); // q elems length
+            Qid = new List<int>(); //quantid
+            Qarr = new List<byte[]>();
             F = new List<flow>();
+            Farr = new List<byte[]>();
             Fs = new List<flows>();
-            img = new List<List<List<List<int>>>>();
+            img = new List<List<int[,]>>();
             //        Flow Number
             //             Tabe in flow number  
             //                  rows of table
             //                      cell of table
         }
 
-        public void setQ(byte[] arr)
+        public void setQ(byte[] arr, bool ob, int id)
         {
+            onebyte.Add(ob);
+            Qid.Add(id);
+            Qarr.Add(arr);
             int len = (int)Math.Sqrt(arr.Length);
             if (len * len < arr.Length) len += 1;
             Q.Add(new List<List<int>>(len));
@@ -53,30 +67,76 @@ namespace JPEG
             for (int i = 0; i < arr.Length; ++i)
             {
                 flows.next(ref ji, ref jj, ref o, len);
-                Q[Q.Count - 1][ji][jj] = arr[i];
-                
+                if (onebyte)
+                {
+                    Q[Q.Count - 1][ji][jj] = arr[i];
+                }
+                else
+                {
+                    Q[Q.Count - 1][ji][jj] = arr[2*i]*256+arr[2*i+1];
+                }
             }
         }
 
         public byte[] readallbytes(FileStream f)
         {
             List<byte> l = new List<byte>();
+            List<byte> imga = new List<byte>();
             byte[] arr = new byte[1];
             byte[] arr2 = new byte[1];
             while (true)
             {
                 f.Read(arr, 0, 1);
+                imga.Add(arr[0]);
                 if (arr[0] == 0xff)
                 {
                     f.Read(arr2, 0, 1);
+                    imga.Add(arr2[0]);
                     if (arr2[0] == 0xd9)
                     {
+                        imgarr = imga.ToArray<byte>();
                         return l.ToArray<byte>();
                     }
                 }
                 l.Add(arr[0]);
             }
         }
+
+
+        public static jpg operator *(jpg imgo, int a)
+        {
+            jpg img = imgo;
+            throw new Exception("Write deep copy method");
+            for(int i = 0; i < img.Q.Count; ++i)
+            {
+                for(int j = 0; j< img.Q[i].Count; ++j)
+                {
+                    for(int k = 0; k < img.Q[i][j].Count; ++k)
+                    {
+                        img.Q[i][j][k] *= a;
+                    }
+                }
+            }
+            return img;
+        }
+
+        public static jpg operator *(jpg imgo, int a)
+        {
+            jpg img = imgo;
+            throw new Exception("Write deep copy method");
+            for (int i = 0; i < img.Q.Count; ++i)
+            {
+                for (int j = 0; j < img.Q[i].Count; ++j)
+                {
+                    for (int k = 0; k < img.Q[i][j].Count; ++k)
+                    {
+                        img.Q[i][j][k] *= a;
+                    }
+                }
+            }
+            return img;
+        }
+
 
     }
 
@@ -347,8 +407,8 @@ namespace JPEG
                     arr = new byte[len];
                     bool onebyte = head[2] / 16 == 0;
                     int tableid = head[2] % 16;
-                    f.Read(arr, 0, len);
-                    image.setQ(arr);
+                    f.Read(arr, 0, len*(onebyte?1:2));
+                    image.setQ(arr, onebyte, tableid);
                     continue;
                 }
                 //Base coding
@@ -358,6 +418,7 @@ namespace JPEG
                     int len = head[0] * 256 + head[1] - 2;
                     arr = new byte[len];
                     f.Read(arr, 0, len);
+                    image.Farr.Add(arr);
                     int precision = arr[0];
                     int height = arr[1] * 256 + arr[2];
                     int width = arr[3] * 256 + arr[4];
@@ -375,6 +436,7 @@ namespace JPEG
                     arr = new byte[len];
                     f.Read(arr, 0, len);
                     image.H.Add(new haffman(arr));
+                    image.Harr.Add(arr);
                     continue;
                 }
                 if (head[0] == 0xff && head[1] == 0xda)
@@ -395,66 +457,154 @@ namespace JPEG
                         image.H[i].now = image.H[i].h;
                     }
                     int fn = 0;
-                    int i = 2;
+                    int i = 0;
                     int j = 8;
-                    //readallbytes(f);
-                    while (true)
+                    byte[] b = image.readallbytes(f);
+                    bool changefn = false;
+                    int value = 0;
+                    int readnbits = 0;
+                    bool DC = true;
+                    //while (true)
                     {
-                        fn += 1;
-                        fn %= image.Fs.Count;
-                        start:if (i == 2 && j == 8)
-                        {
-                            i = 0;
-                            j = 0;
 
-                            f.Read(arr, 0, 1);
-                            if (arr[0] == 0xff)
-                            {
-                                f.Read(arr2, 0, 1);
-                                if (arr2[0] == 0xd9)
-                                {
-                                    return 0;
-                                }
-                            }
-                        }
-                        for(i; i < 2; ++i)
+                        for (; i < b.Length; ++i)
                         {
-                            for(j; j < 8; ++j)
+                            start: if (changefn)
                             {
-                                if (((1 << (j + (1 - i) * 8)) & arr[0]) == 0)
+                                //fn += 1;
+                                int[,] nl = new int[8,8];
+
+                                image.img[fn].Add(nl);
+                                fn %= image.Fs.Count;
+                                changefn = false;
+                            }
+                            if (j == 8)
+                            {
+                                j = 0;
+                                i++;
+                                //    //f.Read(arr, 0, 1);
+                                //    //if (arr[0] == 0xff)
+                                //    //{
+                                //    //    f.Read(arr2, 0, 1);
+                                //    //    if (arr2[0] == 0xd9)
+                                //    //    {
+                                //    //        return 0;
+                                //    //    }
+                                //    //}
+                            }
+                            for(; j < 8; ++j)
+                            {
+                                if (readnbits-- > 1)
+                                {
+                                    value = value << 1 + (((1 << j) & b[i]) == 0 ? 0 : 1);
+                                    goto end;
+                                }
+                                if (readnbits-- == 1)
+                                {
+                                    value = value << 1 + (((1 << j) & b[i]) == 0 ? 0 : 1);
+                                    image.img[fn][image.img[fn].Count - 1][image.Fs[fn].i, image.Fs[fn].j] = value;
+                                    value = 0;
+                                    goto end;
+                                }
+
+                                if (((1 << j) & b[i]) == 0)
                                 {
                                     image.H[fn].now = image.H[fn].now.l;
-                                    if (image.H[fn].now.v != -1)
-                                    {
-                                        image.Fs[fn].next();
-                                        if (image.Fs[fn].pos >= 64)
-                                        {
-                                            goto end;
-                                        }
-                                        if (image.H[fn].now.v == 0)
-                                        {
-                                            image.img[fn][image.img[fn].Count - 1][image.Fs[fn].i][image.Fs[fn].j] = image.H[fn].now.v;
-                                        }
-                                        else {
-                                            image.img[fn][image.img[fn].Count - 1][image.Fs[fn].i][image.Fs[fn].j] =
-                                        } 
-                                        image.H[fn].now = image.H[fn].h;
-                                    }
                                 }
                                 else
                                 {
                                     image.H[fn].now = image.H[fn].now.r;
-
                                 }
 
+                                if (image.H[fn].now.v != -1)
+                                {
+                                    image.Fs[fn].next();
+                                    if (image.Fs[fn].pos >= 64)
+                                    {
+                                        changefn = true;
+                                        goto start;
+                                    }
+                                    if (image.H[fn].now.v == 0)
+                                    {
+                                        image.img[fn][image.img[fn].Count - 1][image.Fs[fn].i,image.Fs[fn].j] = image.H[fn].now.v;
+                                        if (!DC)
+                                        {
+                                            while(image.Fs[fn].pos < 64)
+                                            {
+                                                image.Fs[fn].next();
+                                                image.img[fn][image.img[fn].Count - 1][image.Fs[fn].i,image.Fs[fn].j] = image.H[fn].now.v;
+                                            }
+                                            changefn = true;
+                                            DC = true;
+                                            goto start;
+                                        }
+                                    }
+                                    else {
+                                        readnbits = image.H[fn].now.v;
+                                    } 
+                                    image.H[fn].now = image.H[fn].h;
+                                    goto end;
+                                }
+
+                                end: int prostometka = 0;
                             }
                         }
-                        end: int prostometka = 0;
                     }
-                    continue;
+                    //continue;
                 }
 
                 break;
+            }
+            return 0;
+        }
+
+        public static int Write(string path, jpg image)
+        {
+            FileStream f = new FileStream(path, FileMode.Create);
+            byte[] head = new byte[2];
+
+            
+            {
+                head = new byte[2] { 0xff, 0xd8 };
+                f.Write(head, 0, 2); //Start header
+
+                for (int i = 0; i < image.Q.Count; ++i) {
+                    head = new byte[2] { 0xff, 0xdb };
+                    f.Write(head, 0, 2); //Quantirized table
+                    {
+                        head = new byte[3];
+                        head[0] = (byte)((image.Q[i].Count * image.Q[i].Count + 3) / 256);
+                        head[1] = (byte)((image.Q[i].Count * image.Q[i].Count + 3) % 256);
+                        head[2] = (byte)((image.onebyte[i] ? 0 : 1) * 16 + image.Qid[i]);
+                        f.Write(head, 0, 3);
+                        f.Write(image.Qarr[i], 0, image.Qarr[i].Length);
+                    }
+                }
+
+                for(int i = 0;i<image.Farr.Count;++i){
+                    head = new byte[2] { 0xff, 0xc0 };
+                    f.Write(head, 0, 2); //Base coding
+                    head[0] = (byte)((image.Farr[i].Length + 2) / 256);
+                    head[1] = (byte)((image.Farr[i].Length + 2) % 256);
+                    f.Write(head, 0, 2);
+                    f.Write(image.Farr[i], 0, image.Farr[i].Length);
+                    
+                }
+
+                for(int i = 0;i<image.Harr.Count;++i)
+                {
+                    head = new byte[2] { 0xff, 0xc4 };
+                    f.Write(head, 0, 2); // Haar
+                    head[0] = (byte)((image.Harr[i].Length + 2) / 256);
+                    head[1] = (byte)((image.Harr[i].Length + 2) % 256);
+                    f.Write(head, 0, 2);
+                    f.Write(image.Harr[i], 0, image.Harr[i].Length);
+                }
+
+                head = new byte[2] { 0xff, 0xda };
+                f.Write(head, 0, 2); // Body of image
+                f.Write(image.imgarr, 0, image.imgarr.Length);
+                
             }
             return 0;
         }
