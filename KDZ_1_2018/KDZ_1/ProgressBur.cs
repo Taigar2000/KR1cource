@@ -19,7 +19,7 @@ namespace KDZ_1
         /// <summary>
         /// ссылка на фрактал, для получения информации об отрисовке фрактала
         /// </summary>
-        private Fractal frac;
+        private int max_length;
         /// <summary>
         /// bool переменная, обозначающая нужно ли завершать выполнение
         /// </summary>
@@ -34,29 +34,28 @@ namespace KDZ_1
         public System.Windows.Forms.ProgressBar progressBar1 = new System.Windows.Forms.ProgressBar();
 
         /// <summary>
-        /// Получение ссылки на фрактал
-        /// </summary>
-        /// <param name="f"></param>
-        public void gfrac(object f)
-        {
-            this.frac = (Fractal)f;
-            init();
-        }
-        
-        /// <summary>
         /// Конструктор устанавливающий ссылку на фрактал
         /// </summary>
         /// <param name="f">Ссылка на фрактал</param>
-        public ProgressBur(Object f)
+        public ProgressBur()
         {
             this.Closed += ProgressBurClosed;
-            frac = (Fractal)f;
             InitializeComponent();
             init();
             this.Hide();
             this.Visible = false;
             timer.Interval = 10; //интервал между срабатываниями 10 миллисекунд
             timer.Tick += new EventHandler(Draw);
+        }
+        
+        /// <summary>
+        /// Получение ссылки на фрактал
+        /// </summary>
+        /// <param name="f"></param>
+        public void gfrac(int maxl)
+        {
+            this.max_length = maxl;
+            init();
         }
 
         /// <summary>
@@ -65,7 +64,7 @@ namespace KDZ_1
         public void init()
         {
             this.progressBar1.Minimum = 0;
-            this.progressBar1.Maximum = frac.max_length;
+            this.progressBar1.Maximum = this.max_length;
         }
         
         /// <summary>
@@ -98,7 +97,6 @@ namespace KDZ_1
         {
             if (!isexit)
             {
-                frac.isdrawing=false;
                 e.Cancel = true;
             }
         }
@@ -115,5 +113,30 @@ namespace KDZ_1
                 this.OnFormClosing(new FormClosingEventArgs(new CloseReason(), false));
             }
         }
+
+        /// <summary>
+        /// Метод для закрытия приложения при возникновении исключения
+        /// </summary>
+        private void ApplicationClosingByException(Exception ex = null, string s = "")
+        {
+            Program.isclosedbyex = true;
+            if (ex != null)
+            {
+                Program.exmessage = $"Возникло исключение. Форма будет перещапущена. \r\nДополнительная информация: \r\n{ex.Message}";
+            }
+            else
+            {
+                Program.exmessage = s;
+            }
+            foreach (var i in this.OwnedForms)
+            {
+                i.Close();
+            }
+            bool f = MessageBox.Show(Program.exmessage, "Перезапустить приложение?", MessageBoxButtons.YesNo) == DialogResult.Yes;
+            this.Owner.Close();
+            this.Close();
+            Program.isclosedbyex = f;
+        }
+
     }
 }

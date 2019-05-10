@@ -9,13 +9,17 @@ namespace KDZ_1
 {
     static class Program
     {
+        public static bool isclosedbyex = true; // Приложение закрылось из-за ошибки или по желанию пользователя
+        public static string exmessage = ""; // Сообщение содержащее информацию об ошибке из-за которой закрылась форма
+
+
         public class MultiFormContext : ApplicationContext
         {
             private int openForms;
             public MultiFormContext(params Form[] forms)
             {
                 openForms = forms.Length;
-
+                bool f = true;
                 foreach (var form in forms)
                 {
                     form.FormClosed += (s, args) =>
@@ -24,7 +28,8 @@ namespace KDZ_1
                             ExitThread();
                     };
 
-                    form.Show();
+                    if(!f)form.Show(forms[0]);
+                    else form.Show();
                 }
             }
         }
@@ -35,76 +40,26 @@ namespace KDZ_1
         [STAThread]
         static void Main()
         {
-            //int ji = 1;
-            //int jj = -1;
-            //int o = 1;
-            //int size = 8;
-            //List<int[]> l = new List<int[]>();
-            //int[,] arr = new int[size, size];
-            //for (int i = 0; i < 64; i++)
-            //{
-            //    ji -= o;
-            //    jj += o;
-
-            //    bool lastisrot = false;
-            //    if (!lastisrot && jj > size - 1) // Turn right and go down
-            //    {
-            //        o *= -1;
-            //        ji += 2;
-            //        jj -= 1;
-            //        lastisrot = true;
-            //    }
-            //    if (!lastisrot && ji < 0) // Turn right and go down
-            //    {
-            //        o *= -1;
-            //        ji += 1;
-            //        jj += 0;
-            //        lastisrot = true;
-            //    }
-            //    if (!lastisrot && ji > size - 1) // Turn left and go up
-            //    {
-            //        o *= -1;
-            //        ji -= 1;
-            //        jj += 2;
-            //        lastisrot = true;
-            //    }
-            //    if (!lastisrot && jj < 0) // Turn left and go up
-            //    {
-            //        o *= -1;
-            //        ji += 0;
-            //        jj += 1;
-            //        lastisrot = true;
-            //    }
-            //    l.Add(new int[] { ji, jj });
-            //    arr[ji, jj] = i+1;
-                    
-            //}
-            //return;
-            //for developer only
-            bool debug = false;
-            //Заставляем всех использовать английскую локаль
+            //All must using english (US) locale
             System.Threading.Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("en-US");
-            //while (true)
-            //{
+            Application.EnableVisualStyles();
+            Application.SetCompatibleTextRenderingDefault(false);
+            while (isclosedbyex)
+            {
+
                 //try
-                //{
-                    Application.EnableVisualStyles();
-                    Application.SetCompatibleTextRenderingDefault(false);
-                    ProgressBur pb = new ProgressBur(new Fractal());
-                    Application.Run(new MultiFormContext(new Form1(pb), pb));
-                    //break;
-                //}
-                //catch (Exception ex)
-                //{
-                    //if (debug) // For developers only
-                    //{
-                    //    Console.WriteLine("Произошла непредвиденная ошибка\n" + ex.Message + '\n' + ex.Source + '\n' + ex.StackTrace + '\n' + ex.ToString());
-                    //    Console.WriteLine("\nДля выхода из программы нажмите ESC\n Для перезапуска программы - клавишу Enter");
-                    //    if (Console.ReadKey(true).Key != ConsoleKey.Escape) continue;
-                    //}
-                //}
-                //if(debug) break;
-            //}
+                {
+                    isclosedbyex = false;
+                    ProgressBur pb = new ProgressBur();
+                    Application.Run(new MultiFormContext(new Form1(pb)/*, pb*/));
+                    break;
+                }
+                //catch (Exception ex) { }
+                if (!isclosedbyex)
+                {
+                    Application.Exit(); //Close this application totally
+                }
+            }
         }
     }
 }

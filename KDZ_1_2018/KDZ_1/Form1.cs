@@ -8,7 +8,7 @@ using System.Text;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using GerasimenkoER_KDZ3_v2;
+using JPEG;
 
 namespace KDZ_1
 {
@@ -17,21 +17,15 @@ namespace KDZ_1
         #region Init
 
         private float posx, posy, pox, poy;
-        Fractal frac;
+        
         private string name = "";
-        Fractal Frac{
-            get{
-                return frac;
-            }
-            set
-            {
-                pox = poy = 0;
-                frac = value;
-            }
-        }
         private string message = "";
         private Bitmap bmp = null;
+        private Bitmap rawbmp = null;
+        private jpg img = new jpg();
         private bool draw_step_by_step = true;
+        private bool isdrawing = false;
+        double scale = 1;
         ProgressBur pb;
         Timer timer = new Timer();
         bool fenableformwhendrawing = false;
@@ -50,112 +44,86 @@ namespace KDZ_1
             this.pb.Enabled = false;
             DoubleBuffered = true;
             InitializeComponent();
+
+            this.comboBox_type_of_operations.SelectedIndex = 0;
+            this.textBox1.Text = "1";
+            this.textBox1.Visible = false;
+            this.Closed += Form1Closed;
+            this.TopMost = overAllWindowsToolStripMenuItem.Checked = false;
+
             Invalidate();
             Init();
-            SetStartColor.Visible = false;
-            SetEndColor.Visible = false;
-            this.colorDialog1.FullOpen = true;
-            this.colorDialog1.Color = Color.White;
-            this.Closed += Form1Closed;
-            this.TopMost = overAllWindowsToolStripMenuItem.Checked;
-            timer.Interval = 10; //интервал между срабатываниями 10 миллисекунд
-            timer.Tick += new EventHandler(timer_Tick);
+            
             
         }
 
-        #region Fractal
+        #region Image
 
+
+        #region GUI
+        double textBox1ov = 1;
         /// <summary>
-        /// Выбор фрактала
+        /// Проверка введённого коэффициента на корректность
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private void comboBox_fractal_SelectedIndexChanged(object sender, EventArgs e)
+        private void textBox1_TextChanged(object sender, EventArgs e)
         {
-            switch (this.comboBox_type_of_fractal.SelectedIndex)
+            double a = 0;
+            try
             {
-                case 2:
-                    this.textBox_dspace.Visible = true;
-                    this.label_dspace.Visible = true;
-                    Fractal Frac2 = Frac;
-                    Frac = new Cantor();
-                    if (Frac2 != null)
-                    {
-                        Frac.startColor = Frac2.startColor;
-                        Frac.endColor = Frac2.endColor;
-                        Frac.scf = Frac2.scf;
-                        Frac.ecf = Frac2.ecf;
-                        Frac.drawall = Frac2.drawall;
-                        Frac.scale = Frac2.scale;
-                    }
-                    else
-                        Init(false);
-                    break;
-                case 1:
-                    this.textBox_dspace.Visible = false;
-                    this.label_dspace.Visible = false;
-                    Fractal Frac21 = Frac;
-                    Frac = new Levi();
-                    if (Frac21 != null)
-                    {
-                        Frac.startColor = Frac21.startColor;
-                        Frac.endColor = Frac21.endColor;
-                        Frac.scf = Frac21.scf;
-                        Frac.ecf = Frac21.ecf;
-                        Frac.drawall = Frac21.drawall;
-                        Frac.scale = Frac21.scale;
-                    }
-                    else
-                        Init(false);
-                    break;
-                case 0:
-                    this.textBox_dspace.Visible = false;
-                    this.label_dspace.Visible = false;
-                    Fractal Frac22 = Frac;
-                    Frac = new Gilbert();
-                    if (Frac22 != null)
-                    {
-                        Frac.startColor = Frac22.startColor;
-                        Frac.endColor = Frac22.endColor;
-                        Frac.scf = Frac22.scf;
-                        Frac.ecf = Frac22.ecf;
-                        Frac.drawall = Frac22.drawall;
-                        Frac.scale = Frac22.scale;
-                    }
-                    else
-                        Init(false);
-                    break;
-                case -1:
-                    return;
+                a = double.Parse(textBox1.Text);
             }
-            pb.gfrac(Frac);
-            SetStartColor.Visible = true;
-            SetEndColor.Visible = true;
+            catch(Exception ex)
+            {
+                textBox1.Text = "" + textBox1ov;
+                DropExWindow("Введите вещественное число больше 0 (через \".\")");
+            }
+            textBox1ov = a;
         }
 
         /// <summary>
-        /// Отрисовка фрактала
+        /// Обработка выбора операции над изображением
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void comboBox_type_of_operations_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            this.textBox1.Visible = false;
+            if (((ComboBox)sender).SelectedIndex==1 || ((ComboBox)sender).SelectedIndex == 2)
+            {
+                this.textBox1.Visible = true;
+            }
+        }
+
+        /// <summary>
+        /// Отображение результата вычислений
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
         private void button1_Click(object sender, EventArgs e)
         {
-            if (this.Frac == null) { DropExWindow("Выберите тип фрактала"); return; }
-            if (this.Frac.isdrawing) return;
-            DrawFractal();
+            if (this.isdrawing) return;
+            //Rewrite();
+            DrawImage();
         }
 
+        #endregion
+
         /// <summary>
-        /// Перерисовываем фрактал
+        /// Перерисовываем изображение на Bitmap
         /// </summary>
         void Rewrite()
         {
-            if (this.Frac.isdrawing) return;
+            if (this.isdrawing) return;
             try
             {
-                this.bmp = new Bitmap((int)(((Frac.xsize + Frac.space * 2) * Frac.scale)), (int)((Frac.ysize + Frac.space * 2) * Frac.scale));
-                Graphics graph = Graphics.FromImage(bmp);
-                DrawFractal();
+                if (name == "")
+                {
+                    loadToolStripMenuItem_Click(null, null);
+                }
+                this.rawbmp = new Bitmap(name);
+                this.bmp = new Bitmap(rawbmp,(int)(rawbmp.Width*scale),(int)(rawbmp.Height*scale));
             }
             catch (ArgumentNullException ex)
             {
@@ -164,8 +132,8 @@ namespace KDZ_1
             catch (System.ArgumentException ex)
             {
                 //Вывод окна с сообщением об ошибке
-                DropExWindow("Слишком большое приближение/удаление \n" + ex.Message);
-                Init();
+                DropExWindow("Слишком большой размер изображения, возможно это связано со слишком большим приближением или удалением \n" + ex.Message);
+                Init(false);
             }
             catch (OverflowException ex)
             {
@@ -180,140 +148,52 @@ namespace KDZ_1
         }
 
         /// <summary>
-        /// Построение фрактала
+        /// Применение операций к закодированному изображению и его вывод на форму
         /// </summary>
-        void DrawFractal()
+        void DrawImage()
         {
-            if (Frac!=null && Frac.isdrawing) return;
-            bool f = false;
-            message = "";
-            if (Frac == null)
+            if (name == "")
             {
-                f = true;
+                DropExWindow("Выберите изображение для изменения");
+                loadToolStripMenuItem_Click(null, null);
             }
-            this.textBox_dspace.Visible = false;
-            this.label_dspace.Visible = false;
-            switch (this.comboBox_type_of_fractal.SelectedIndex)
+            if (name == "")
+                return;
+            JPEGReader.Read(name, img);
+            switch (this.comboBox_type_of_operations.SelectedIndex)
             {
-                case 0: 
+                case 0: //"Без изменений",
+                    
                     break;
-                case 1:
-                    break;
-                case 2:
-                    this.textBox_dspace.Visible = true;
-                    this.label_dspace.Visible = true;
-                    int dspace;
-                    if (this.textBox_dspace.TextLength == 0)
+                case 1: //"Скалярное произведение",
+                    double a = 0;
+                    try
                     {
-                        //Вывод окна с сообщением об ошибке
-                        DropExWindow("Введите расстояния между шагами рекурсии");
+                        a = double.Parse(textBox1.Text);
+                    }
+                    catch(Exception ex)
+                    {
                         return;
                     }
-                    if (this.textBox_dspace.TextLength == 0 || !int.TryParse(this.textBox_dspace.Text, out dspace) || dspace < 0 || dspace > 1000)
-                    {
-                        //Вывод окна с сообщением об ошибке
-                        DropExWindow("Некорректный формат введённго расстояния между шагами рекурсии");
-                        return;
-                    }
-                    Frac.set_float(dspace);
+                    img=img * a;
                     break;
+                case 2: //"Скалярное увеличение",
+            
+                    break;
+                case 3: //"Пиксельное увеличение",
+
+                    break;
+                case 4: //"Пиксельное произведение"
+
+                    break;
+
             }
-            if (Frac == null)
-            {
-                //Вывод окна с сообщением об ошибке
-                message = "Выберите тип фрактала";
-                DropExWindow(message);
-                return;
-            }if (!Frac.scf)
-            {
-                //Вывод окна с сообщением об ошибке
-                message = "Выберите начальный цвет фрактала";
-                DropExWindow(message);
-                return;
-            }
-            if (!Frac.ecf)
-            {
-                //Вывод окна с сообщением об ошибке
-                message = "Выберите конечный цвет фрактала";
-                DropExWindow(message);
-                return;
-            }
-            if (this.textBox_max_depth_of_rec.TextLength == 0 || !int.TryParse(this.textBox_max_depth_of_rec.Text, out Frac.max_level_of_rec) || Frac.max_level_of_rec <= 0 /*|| Frac.max_level_of_rec > 1000*/)
-            {
-                //Вывод окна с сообщением об ошибке
-                this.message = "Некорректный формат глубины рекурсии";
-                DropExWindow(message);
-                return;
-            }
-            textBox1_TextChanged();
-            draw_step_by_step = checkBox_buffer.Checked;
+            saveAsToolStripMenuItem_Click(null, null);
+            JPEGReader.Write(name, img);
+            Rewrite();
             if (f) Init();
-            try
-            {
-                this.checkBox1.Enabled = false;
-                this.comboBox_type_of_fractal.Enabled = false;
-                this.SetStartColor.Enabled = false;
-                this.SetEndColor.Enabled = false;
-                this.textBox_max_depth_of_rec.Enabled = false;
-                this.textBox_dspace.Enabled = false;
-                this.button1.Enabled = false;
-                this.textBox1.Enabled = false;
-                this.button2.Enabled = false;
-                this.toolStripMenuItem1.Enabled = false;
-                this.bmp = new Bitmap((int)((Frac.xsize + Frac.space * 2) * Frac.scale), (int)((Frac.ysize + Frac.space * 2) * Frac.scale));
-                Graphics graph = Graphics.FromImage(bmp);
-                Frac.drawall = checkBox1.Checked;
-                Frac.pen = new Pen(Frac.startColor);
-                Frac.brush = new SolidBrush(Frac.startColor);
-                this.Enabled = false || fenableformwhendrawing;
-                this.TopMost = false;
-                this.pb.Show();
-                this.pb.TopMost = true;
-                ProgressBur();
-                timer.Start();
-                Frac.pb.timer.Start();
-                System.Threading.Thread thr = new System.Threading.Thread(delegate() { Frac.Draw(graph); });
-                thr.Start();
-                if (Frac.message.Length > 0)
-                {
-                    //Вывод окна с сообщением об ошибке
-                    message = Frac.message;
-                    DropExWindow(message);
-                }
-            }
-            catch(NullReferenceException ex)
-            {
-                DropExWindow(ex.Message);
-            }
-            catch(OverflowException ex)
-            {
-                DropExWindow(ex.Message);
-            }
-            catch(ArgumentNullException ex)
-            {
-                DropExWindow("Введёно слишком большое приближение/удаление\n" + ex.Message);
-                Init();
-            }
-            catch(Exception ex)
-            {
-                DropExWindow(""+ex.Message);
-                Init();
-            }
-            finally
-            {
-            }
         }
         
-        /// <summary>
-        /// Сколько уровней рекурсии отрисовывать
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void checkBox1_CheckedChanged(object sender, EventArgs e)
-        {
-            if (Frac != null && !this.Frac.isdrawing) Frac.drawall = checkBox1.Checked;
-        }
-
         #endregion
 
         /// <summary>
@@ -322,30 +202,11 @@ namespace KDZ_1
         /// <param name="e"></param>
         protected override void OnPaint(PaintEventArgs e)
         {
-            try
+            if (bmp != null)
             {
-                if (bmp != null && Frac != null)
-                {
-                    e.Graphics.DrawImage(bmp, posx, posy);
-                }
-                base.OnPaint(e);
+                e.Graphics.DrawImage(bmp, posx, posy);
             }
-            catch(ArgumentNullException ex)
-            {
-                //Вывод окна с сообщением об ошибке
-                DropExWindow("Попытка вывести несуществующий фрактал" + ex.Message);
-                //Данное сообщение можно было получить в предыдущих версиях программы
-            }
-            catch(OverflowException ex)
-            {
-                //Вывод окна с сообщением об ошибке
-                //Text = "" + (posx + Frac.xspace) + " " + (posy + Frac.yspace) + " " + (Frac.scale);
-                DropExWindow("" + ex.Message);
-            }
-            catch(Exception ex)
-            {
-                DropExWindow("" + ex.Message);
-            }
+            base.OnPaint(e);
         }
 
         #region Move
@@ -358,7 +219,7 @@ namespace KDZ_1
         /// <param name="e"></param>
         private void pictureBox_fractal_MouseDown(object sender, MouseEventArgs e)
         {
-            if (Frac == null || (Frac.isdrawing && !fenableformwhendrawing)) return;
+            if (bmp == null) return;
             if (!f)
             {
                 pox = e.X;
@@ -379,7 +240,7 @@ namespace KDZ_1
         /// <param name="e"></param>
         private void pictureBox_fractal_MouseUp(object sender, MouseEventArgs e)
         {
-            if (Frac == null || (Frac.isdrawing && !fenableformwhendrawing)) return;
+            if (bmp == null) return;
             if (f)
             {
                 f = false;
@@ -393,7 +254,7 @@ namespace KDZ_1
         /// <param name="e"></param>
         private void pictureBox_fractal_MouseMove(object sender, MouseEventArgs e)
         {
-            if (Frac == null || (Frac.isdrawing && !fenableformwhendrawing)) return;
+            if (bmp == null) return;
             if (f)
             {
                 float dx = e.X - pox, dy = e.Y - poy;
@@ -403,9 +264,9 @@ namespace KDZ_1
                 posy += dy;
 
                 if (posx > this.Width) posx = this.Width;
-                if (posx - pictureBox1.Width + (2*Frac.space + Frac.xsize)*Frac.scale < 0) posx = pictureBox1.Width - (2 * Frac.space + Frac.xsize) * Frac.scale;
+                if (posx - pictureBox1.Width + bmp.Width < 0) posx = 0 - bmp.Width + pictureBox1.Width;
                 if (posy + menuStrip1.Height > this.Height) posy = - menuStrip1.Height + this.Height;
-                if (posy - menuStrip1.Height + (2 * Frac.space + Frac.ysize) * Frac.scale < 0) posy = menuStrip1.Height - (2 * Frac.space + Frac.ysize) * Frac.scale;
+                if (posy - menuStrip1.Height + bmp.Height < 0) posy = menuStrip1.Height - bmp.Height;
 
                 Invalidate();
             }
@@ -418,8 +279,8 @@ namespace KDZ_1
         /// <param name="e"></param>
         private void button2_Click(object sender, EventArgs e)
         {
-            if (Frac == null || Frac.isdrawing) return;
-            if (this.Frac.isdrawing) return;
+            if (bmp == null) return;
+            if (this.isdrawing) return;
             Init();
         }
 
@@ -429,12 +290,12 @@ namespace KDZ_1
         /// <param name="e"></param>
         void ZoomUp(MouseEventArgs e)
         {
-            if (this.Frac.isdrawing) return;
+            if (this.isdrawing) return;
             pox -= (posx - e.X) - (posx - e.X) * (float)(1.5);
             poy -= (posy - e.Y) - (posy - e.Y) * (float)(1.5);
             posx -= (posx - e.X) - (posx - e.X) * (float)(1.5);
             posy -= (posy - e.Y) - (posy - e.Y) * (float)(1.5);
-            Frac.scale *= (float)1.5;
+            this.scale *= (float)1.5;
             //Rewrite();
         }
         
@@ -443,9 +304,8 @@ namespace KDZ_1
         /// </summary>
         void ZoomUp()
         {
-            if (this.Frac.isdrawing) return;
-            Frac.scale *= (float)1.5;
-            this.textBox1.Text = Frac.scale.ToString();
+            if (this.isdrawing) return;
+            this.scale *= (float)1.5;
             Rewrite();
         }
 
@@ -455,8 +315,8 @@ namespace KDZ_1
         /// <param name="e"></param>
         void ZoomDown(MouseEventArgs e)
         {
-            if (this.Frac.isdrawing) return;
-            Frac.scale /= (float)1.5;
+            if (this.isdrawing) return;
+            this.scale /= (float)1.5;
             pox -= (posx - e.X) - (posx - e.X) / (float)(1.5);
             poy -= (posy - e.Y) - (posy - e.Y) / (float)(1.5);
             posx -= (posx - e.X) - (posx - e.X) / (float)(1.5);
@@ -469,9 +329,8 @@ namespace KDZ_1
         /// </summary>
         void ZoomDown()
         {
-            if (this.Frac.isdrawing) return;
-            Frac.scale /= (float)1.5;
-            this.textBox1.Text = Frac.scale.ToString();
+            if (this.isdrawing) return;
+            this.scale /= (float)1.5;
             Rewrite();
         }
 
@@ -482,10 +341,8 @@ namespace KDZ_1
         /// <param name="e"></param>
         void pictureBox_fractal_MouseWheel(object sender, MouseEventArgs e)
         {
-            if (this.Frac.isdrawing) return;
-            if (Frac == null || Frac.isdrawing) return;
-            if (Frac == null || bmp == null) return;
-            if (Frac.isdrawing) return;
+            if (this.isdrawing) return;
+            if (bmp == null) return;
             if (e.Delta > 0)
             {
                 ZoomUp(e);
@@ -494,36 +351,28 @@ namespace KDZ_1
             {
                 ZoomDown(e);
             }
-            this.label5.Text = $"Масштаб: ";
-            if (Frac == null)
-            {
-                this.textBox1.Text = "1";
-            }
-            else
-            {
-                this.textBox1.Text = $"{this.Frac.scale:f3}";
-            }
             Rewrite();
         }
 
         /// <summary>
-        /// Изменение масштаба через поле для ввода
+        /// Стартовые значения позиции и размера и если draw, то перерисование фрактала
         /// </summary>
-        private void textBox1_TextChanged()
+        /// <param name="draw">Перерисовать фрактал?Да:Нет</param>
+        private void Init(bool draw=true)
         {
-            //if (this.Frac.isdrawing) return;
-            float sc;
-            if (!(float.TryParse(this.textBox1.Text, out sc) && sc > 0.05 && sc <= 51.8)) { DropExWindow("Неверное значение масштаба"); Init(false); return; }
-            if (Frac == null) return;
-            Frac.xspace = this.pictureBox1.Width;
-            Frac.yspace = 22;
-            Frac.xleft = posx;
-            Frac.yleft = posy;
-            Frac.scale = sc;
-            if (!Frac.scf || !Frac.ecf) return;
+            if (this.isdrawing) return;
+            if (bmp == null) return;
+            //posx = Frac.xspace - Frac.xsize * Frac.scale / 2 + (this.Width - Frac.xspace) / 2;
+            //posy = Frac.yspace - Frac.ysize * Frac.scale / 2 + (this.Height - Frac.yspace * 2) / 2;
+            posx = 15;
+            posy = 15;
+            this.scale = 1;
+            if (draw)
+            {
+                Rewrite();
+                Invalidate();
+            }
         }
-        
-        #endregion
 
         /// <summary>
         /// Отлов нажатий клавиш
@@ -532,114 +381,30 @@ namespace KDZ_1
         /// <param name="e"></param>
         private void Form1_KeyDown(object sender, KeyEventArgs e)
         {
-            if (Frac == null || Frac.isdrawing) return;
-            if (e.KeyCode == Keys.C)
+            try
             {
-                if (this.Frac.isdrawing) return;
-                Init();
-            }
-            if (e.KeyCode == Keys.E)
-            {
-                if (this.Frac.isdrawing) return;
-                ZoomUp();
-                if (Frac == null)
+                if (bmp == null) return;
+                if (e.KeyCode == Keys.C)
                 {
-                    this.textBox1.Text = "1";
+                    Init();
                 }
-                else
+                if (e.KeyCode == Keys.Q)
                 {
-                    this.textBox1.Text = $"{this.Frac.scale:f3}";
+                    ZoomUp();
                 }
-            }
-            if (e.KeyCode == Keys.Q)
-            {
-                if (this.Frac.isdrawing) return;
-                ZoomDown();
-                this.label5.Text = $"Масштаб: ";
-                if (Frac == null)
+                if (e.KeyCode == Keys.E)
                 {
-                    this.textBox1.Text = "1";
+                    ZoomDown();
                 }
-                else
-                {
-                    this.textBox1.Text = $"{this.Frac.scale:f3}";
-                }
-            }
-            if (e.KeyCode == Keys.B)
-            {
-                if (this.Frac.isdrawing) return;
-                if (checkBox_buffer.Checked)
-                {
-                    DoubleBuffered = false;
-                    checkBox_buffer.Checked = false;
-                }
-                else
-                {
-                    DoubleBuffered = true;
-                    checkBox_buffer.Checked = true;
-                }
-            }
-            if (e.KeyCode == Keys.Enter)
-            {
-                if (this.Frac.isdrawing) return;
-                Rewrite();
-            }
-            if (e.KeyCode == Keys.L && this.textBox1.Text=="42" && this.textBox_max_depth_of_rec.Text=="42")
-            {
-                fenableformwhendrawing ^= true;
-                DropExWindow("В чём заключается смысл Жизни: "+(fenableformwhendrawing?"42":"I dont know"));
-            }
-        }
 
-        #region ColorDialog
-
-        /// <summary>
-        /// Выбор начального цвета фрактала
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void SetStart_Click(object sender, EventArgs e)
-        {
-            if (this.Frac.isdrawing) return;
-            colorDialog1.FullOpen = true;
-            colorDialog1.Color = Frac.startColor;
-            if (colorDialog1.ShowDialog() == DialogResult.OK)
-            {
-                Frac.startColor = colorDialog1.Color;
-                ((Button)sender).BackColor = colorDialog1.Color;
-                ((Button)sender).ForeColor = Color.FromArgb(((Button)sender).ForeColor.A, 
-                    colorDialog1.Color.R < 128 ? 255 : 0,
-                    colorDialog1.Color.G < 128 ? 255 : 0,
-                    colorDialog1.Color.B < 128 ? 255 : 0);
-                Frac.scf = true;
             }
-            
-        }
-
-        /// <summary>
-        /// Выбор конечного цвета фрактала
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void SetEndColor_Click(object sender, EventArgs e)
-        {
-            if (this.Frac.isdrawing) return;
-            colorDialog1.FullOpen = true;
-            colorDialog1.Color = Frac.endColor;
-            if (colorDialog1.ShowDialog() == DialogResult.OK)
+            catch (Exception ex)
             {
-                Frac.endColor = colorDialog1.Color;
-                ((Button)sender).BackColor = colorDialog1.Color;
-                ((Button)sender).ForeColor = Color.FromArgb(((Button)sender).ForeColor.A,
-                    colorDialog1.Color.R < 128 ? 255 : 0,
-                    colorDialog1.Color.G < 128 ? 255 : 0,
-                    colorDialog1.Color.B < 128 ? 255 : 0);
-                Frac.ecf = true;
+                ApplicationClosingByException(ex);
             }
         }
 
         #endregion
-
 
         #region Save
 
@@ -723,7 +488,7 @@ namespace KDZ_1
             //saveAsToolStripMenuItem_Click(sender, e);
             try
             {
-                if (Frac == null) throw (new NullReferenceException());
+                if (bmp == null) throw (new NullReferenceException());
                 SaveFileDialog FBD = new SaveFileDialog();
                 FBD.Filter = "JPEG files (*.jpg; *.jpeg)|*.jpg;*.jpeg|All files (*.*)|*.*";
                 if (FBD.ShowDialog() == DialogResult.OK)
@@ -754,16 +519,6 @@ namespace KDZ_1
             }
         }
 
-        private void saveToolStripMenuItem2_Click(object sender, EventArgs e)
-        {
-            saveToolStripMenuItem1_Click(sender, e);
-        }
-
-        private void toolStripMenuItem2_Click(object sender, EventArgs e)
-        {
-            saveToolStripMenuItem1_Click(sender, e);
-        }
-
         #endregion
 
         #region Load
@@ -775,20 +530,6 @@ namespace KDZ_1
         /// <param name="e"></param>
         private void loadToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            //if (!SaveorLose(issaved))
-            //{
-            //    return;
-            //}
-            //if (encodingToolStripComboBox1.Text != "Encoding Type")
-            //{
-            //    //encodingToolStripComboBox1.Name
-            //    encode = Encoding.GetEncoding((int)int.Parse(encodingToolStripComboBox1.Text.Split(' ')[0]));
-            //}
-            //if (typeToolStripMenuItem.Text != "Separator Type")
-            //{ //typeToolStripMenuItem.Name  
-            //    separ = CSVconv.GetSeparType(typeToolStripMenuItem.Text[0]);
-            //}
-            //contextMenuStrip1.Show();
             string str = "";
             try
             {
@@ -796,26 +537,12 @@ namespace KDZ_1
                 FBD.AddExtension = false;
                 if (name.Length > 0) { FBD.FileName = name; }
                 FBD.Filter = "JPEG files (*.jpg; *.jpeg)|*.jpg;*.jpeg|All files (*.*)|*.*";
-                //if (separ == ';') { FBD.FilterIndex = 3; }
-                //if (separ == ',') { FBD.FilterIndex = 1; }
-                //if (separ == '\t') { FBD.FilterIndex = 2; }
 
                 if (FBD.ShowDialog() == DialogResult.OK)
                 {
                     bmp = new Bitmap(FBD.FileName);
-                    //if (isadded) { toolStripMenuItem5_Click(sender, e); }
-                    //separ = FBD.FilterIndex - 1 == 0 ? ',' : FBD.FilterIndex - 1 == 1 ? '\t' : FBD.FilterIndex - 1 == 2 ? ';' : FBD.FilterIndex - 1 == 3 ? '\t' : FBD.FilterIndex - 1 == 4 ? ';' : ',';//FBD.FileName[FBD.FileName.Length - 1];
-                    //name = FBD.FileName;//.Remove(FBD.FileName.Length - 1);
-                    //datas = CSVconv.fscanf(name, this.encode);
-                    //data = CSVconv.LoadCSVtoStr("" + name, separ, this.encode);
-                    //UpdateData(data, out opop, out adr);
-                    //UpdateGrid();
-                    //issaved = true;
+                    name = FBD.FileName;
                 }
-            }
-            catch (CSVException ex)
-            {
-                DropExWindow("Ошибка при загрузке данных из файла\n" + ex.Message + ex.InnerException?.Message);
             }
             catch (NullReferenceException ex)
             {
@@ -867,52 +594,10 @@ namespace KDZ_1
             }
         }
 
-        ///// <summary>
-        ///// Load data from file
-        ///// </summary>
-        ///// <param name="sender"></param>
-        ///// <param name="e"></param>
-        //private void loadToolStripMenuItem_Click(object sender, EventArgs e, bool f = true)
-        //{
-        //    //if (!SaveorLose(issaved))
-        //    //{
-        //    //    return;
-        //    //}
-        //    //contextMenuStrip1.Show(); c
-        //    try
-        //    {
-        //            List<List<string>> res = new List<List<string>>();
-        //            for (int i = 0; i < datas.Length; i++)
-        //            {
-        //                res.Add(CSVconv.ConvertCSVlinetoListstr(datas[i], separ));
-        //            }
-        //            data = res;
-        //        UpdateGrid();
-        //        //issaved = true;
-        //    }
-        //    catch (CSVException ex)
-        //    {
-        //        DropExWindow("Ошибка при загрузке файла\n" + ex.Message + ex.InnerException?.Message);
-        //    }
-        //    catch (NullReferenceException ex)
-        //    {
-        //        DropExWindow("Невозможно загрузить несуществующий оъект\n" + ex.Message);
-        //    }
-        //    catch (ArgumentNullException ex)
-        //    {
-        //        DropExWindow("Невозможно загрузить оъект\n" + ex.Message);
-        //    }
-        //    catch (System.Runtime.InteropServices.ExternalException ex)
-        //    {
-        //        DropExWindow("Невозможно загрузить оъект\n" + ex.Message);
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        DropExWindow("" + ex.Message);
-        //    }
-        //}
 
         #endregion
+
+        #region New windows
 
         /// <summary>
         /// Новое окно фрактала
@@ -921,9 +606,21 @@ namespace KDZ_1
         /// <param name="e"></param>
         private void newToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (this.Frac!=null && this.Frac.isdrawing) return;
-            (new Form1(pb)).ShowDialog(new Form1(pb));
+            (new Form1(pb)).Show(this);
         }
+
+        /// <summary>
+        /// Новое окно ожидания
+        /// </summary>
+        private void ProgressBur()
+        {
+            this.isdrawing = true;
+            float Max_length = 100;
+            float step = (float)(10000.0) / Max_length;
+            this.pb.init();
+        }
+
+        #endregion
 
         /// <summary>
         /// Вывод сообщения об ошибке
@@ -943,68 +640,7 @@ namespace KDZ_1
             }
         }
 
-        /// <summary>
-        /// Новое окно ожидания
-        /// </summary>
-        private void ProgressBur()
-        {
-            Frac.isdrawing = true;
-            Frac.Max_length = (Frac.max_level_of_rec);
-            Frac.step = (float)(10000.0) / Frac.Max_length;
-            Frac.max_length = 10000;
-            this.Frac.pbm = this.Frac.max_length;
-            Frac.summ = 0;
-            Frac.pb = this.pb;
-            Frac.pb.init();
-            Frac.pb.gfrac(Frac);
-        }
-
-        /// <summary>
-        /// Отрисовка формы во время построения фрактала
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        void timer_Tick(object sender, EventArgs e)
-        {
-            if(draw_step_by_step) Invalidate();
-            if (!Frac.isdrawing) end_of_Draw_Fractal();
-        }
-
-        /// <summary>
-        /// Отрисовывать все уровни постепенно?
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void checkBox_buffer_CheckedChanged(object sender, EventArgs e)
-        {
-            draw_step_by_step = checkBox_buffer.Checked;
-        }
-
-        /// <summary>
-        /// Конец отрисовки фрактала
-        /// </summary>
-        void end_of_Draw_Fractal() {
-            this.Enabled = true;
-            Frac.isdrawing = false;
-            this.pb.Hide();
-            this.pb.TopMost = false;
-            this.Frac.pb.Hide();
-            this.Frac.pb.TopMost = false;
-            this.TopMost = overAllWindowsToolStripMenuItem.Checked;
-            timer.Stop();
-            Frac.pb.timer.Stop();
-            this.checkBox1.Enabled = true;
-            this.comboBox_type_of_fractal.Enabled = true;
-            this.SetStartColor.Enabled = true;
-            this.SetEndColor.Enabled = true;
-            this.textBox_max_depth_of_rec.Enabled = true;
-            this.textBox_dspace.Enabled = true;
-            this.button1.Enabled = true;
-            this.textBox1.Enabled = true;
-            this.button2.Enabled = true;
-            this.toolStripMenuItem1.Enabled = true;
-            Invalidate();
-        }
+                
 
         /// <summary>
         /// Изменение выбранности пункта меню Поверх остальных окон и статуса Поверх остальных окон основного окна
@@ -1017,57 +653,7 @@ namespace KDZ_1
             TopMost = overAllWindowsToolStripMenuItem.Checked;
         }
 
-
         
-
-
-        /// <summary>
-        /// Стартовые значения позиции и размера и перерисование фрактала
-        /// </summary>
-        private void Init()
-        {
-            if (Frac == null) return;
-            if (this.Frac.isdrawing) return;
-            Frac.xspace = this.pictureBox1.Width;
-            Frac.yspace = 22;
-            //posx = Frac.xspace - Frac.xsize * Frac.scale / 2 + (this.Width - Frac.xspace) / 2;
-            //posy = Frac.yspace - Frac.ysize * Frac.scale / 2 + (this.Height - Frac.yspace * 2) / 2;
-            posx = Frac.xspace;
-            posy = Frac.yspace;
-            Frac.xleft = posx;
-            Frac.yleft = posy;
-            Frac.scale = 1;
-            this.textBox1.Text = Frac.scale.ToString();
-            if (!Frac.scf || !Frac.ecf) return;
-            DrawFractal();
-            Invalidate();
-        }
-
-        /// <summary>
-        /// Стартовые значения позиции и размера и если draw, то перерисование фрактала
-        /// </summary>
-        /// <param name="draw">Перерисовать фрактал?Да:Нет</param>
-        private void Init(bool draw)
-        {
-            if (this.Frac.isdrawing) return;
-            if (Frac == null) return;
-            Frac.xspace = this.pictureBox1.Width;
-            Frac.yspace = 22;
-            //posx = Frac.xspace - Frac.xsize * Frac.scale / 2 + (this.Width - Frac.xspace) / 2;
-            //posy = Frac.yspace - Frac.ysize * Frac.scale / 2 + (this.Height - Frac.yspace * 2) / 2;
-            posx = Frac.xspace;
-            posy = Frac.yspace;
-            Frac.xleft = posx;
-            Frac.yleft = posy;
-            Frac.scale = 1;
-            this.textBox1.Text = Frac.scale.ToString();
-            if (!Frac.scf || !Frac.ecf) return;
-            if (draw)
-            {
-                DrawFractal();
-                Invalidate();
-            }
-        }
 
         /// <summary>
         /// Закрытие приложения
@@ -1076,20 +662,34 @@ namespace KDZ_1
         /// <param name="e"></param>
         void Form1Closed(object sender, EventArgs e)
         {
-            if (Frac == null || Frac.pb == null)
-            { 
-                pb.isexit = true;
-            }
-            else
-            {
-                Frac.isdrawing = false;
-                Frac.pb.isexit = true;
-                Fractal.handle.WaitOne();
-            }
             Dispose();
             Application.Exit();
         }
-        
+
+        /// <summary>
+        /// Метод для закрытия приложения при возникновении исключения
+        /// </summary>
+        private void ApplicationClosingByException(Exception ex = null, string s = "")
+        {
+            Program.isclosedbyex = true;
+            if (ex != null)
+            {
+                Program.exmessage = $"Возникло исключение. Форма будет перещапущена. \r\nДополнительная информация: \r\n{ex.Message}";
+            }
+            else
+            {
+                Program.exmessage = s;
+            }
+            foreach (var i in this.OwnedForms)
+            {
+                i.Close();
+            }
+            bool f = MessageBox.Show(Program.exmessage, "Перезапустить приложение?", MessageBoxButtons.YesNo) == DialogResult.Yes;
+            this.Close();
+            Program.isclosedbyex = f;
+        }
+
+
     }
 
 }

@@ -49,19 +49,14 @@
   <ItemGroup>
     <Compile Include="AhoKorasik.cs" />
     <Compile Include="CodeFileThresh.cs" />
-    <Compile Include="Color.cs" />
     <Compile Include="CSVconv.cs" />
     <Compile Include="Data.cs" />
-    <Compile Include="Fractal.cs" />
-    <Compile Include="Cantor.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Form1.Designer.cs">
       <DependentUpon>Form1.cs</DependentUpon>
     </Compile>
-    <Compile Include="Gilbert.cs" />
-    <Compile Include="Levi.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="ProgressBur.cs">
       <SubType>Form</SubType>
@@ -101,6 +96,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\JPEG\JPEG.csproj">
+      <Project>{93cf228d-9254-4539-87a3-2a7e78e84d6d}</Project>
+      <Name>JPEG</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
